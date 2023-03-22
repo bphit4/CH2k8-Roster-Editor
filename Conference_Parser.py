@@ -27,7 +27,7 @@ def parse_conference_info(data):
 
     return conferences
 
-with open("Roster2", "rb") as f:
+with open("USERDATA", "rb") as f:
     data = f.read()
 
 conferences = parse_conference_info(data)
