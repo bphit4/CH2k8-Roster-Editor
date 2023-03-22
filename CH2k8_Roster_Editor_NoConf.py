@@ -17,8 +17,6 @@ class RosterEditor(QWidget):
     def initUI(self):
         self.setGeometry(100, 100, 1200, 1000)
         self.setWindowTitle("College Hoops 2k8 Roster Editor")
-        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.table.customContextMenuRequested.connect(self.show_context_menu)
 
         vbox = QVBoxLayout()
 
@@ -216,33 +214,6 @@ class RosterEditor(QWidget):
             self.delete_item()
         else:
             super().keyPressEvent(event)
-
-    def show_context_menu(self, pos):
-        context_menu = QMenu(self)
-        
-        undo_action = QAction("Undo", self)
-        undo_action.triggered.connect(self.undo)
-        context_menu.addAction(undo_action)
-        
-        redo_action = QAction("Redo", self)
-        redo_action.triggered.connect(self.redo)
-        context_menu.addAction(redo_action)
-        
-        context_menu.addSeparator()
-        
-        cut_action = QAction("Cut", self)
-        cut_action.triggered.connect(self.cut)
-        context_menu.addAction(cut_action)
-        
-        copy_action = QAction("Copy", self)
-        copy_action.triggered.connect(self.copy)
-        context_menu.addAction(copy_action)
-        
-        paste_action = QAction("Paste", self)
-        paste_action.triggered.connect(self.paste)
-        context_menu.addAction(paste_action)
-        
-        context_menu.exec_(self.table.mapToGlobal(pos))
 
     def read_roster_file(self, file_path):
         with open(file_path, "rb") as file:
