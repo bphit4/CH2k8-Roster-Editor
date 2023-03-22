@@ -13,6 +13,7 @@ class RosterEditor(QWidget):
         self.initUI()
         self.roster_file_path = None
         self.team_data = []
+        self.table.itemChanged.connect(self.cell_changed)
 
     def initUI(self):
         self.setGeometry(100, 100, 1200, 1000)
@@ -49,7 +50,7 @@ class RosterEditor(QWidget):
         vbox.addWidget(self.file_label)
 
         # Create an empty table
-        self.table = QTableWidget()
+        self.table = CustomTableWidget()
         vbox.addWidget(self.table)
 
         # Create the context menu for the table
@@ -214,6 +215,15 @@ class RosterEditor(QWidget):
             self.delete_item()
         else:
             super().keyPressEvent(event)
+
+    def cell_changed(self, item):
+        old_value = item.data(Qt.UserRole)
+        new_value = item.text()
+        if old_value is None or old_value == new_value:
+            return
+        command = EditCommand(self.table, item.row(), item.column(), old_value, new_value)
+        self.table.undo_stack.push(command)
+        item.setData(Qt.UserRole, new_value)
 
     def read_roster_file(self, file_path):
         with open(file_path, "rb") as file:
@@ -407,6 +417,64 @@ class EditCommand(QUndoCommand):
     def redo(self):
         self.table.item(self.row, self.col).setText(self.new_value)
 
+class CustomTableWidget(QTableWidget):
+    def __init__(self, *args, **kwargs):
+        super(CustomTableWidget, self).__init__(*args, **kwargs)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.context_menu)
+        self.undo_stack = QUndoStack(self)
+
+    def context_menu(self, pos):
+        menu = QMenu()
+
+        undo_action = menu.addAction("Undo")
+        redo_action = menu.addAction("Redo")
+        menu.addSeparator()
+        cut_action = menu.addAction("Cut")
+        copy_action = menu.addAction("Copy")
+        paste_action = menu.addAction("Paste")
+        delete_action = menu.addAction("Delete")
+        menu.addSeparator()
+        select_all_action = menu.addAction("Select All")
+
+        action = menu.exec_(self.viewport().mapToGlobal(pos))
+
+        if action == undo_action:
+            self.undo()
+        elif action == redo_action:
+            self.redo()
+        elif action == cut_action:
+            self.cut()
+        elif action == copy_action:
+            self.copy()
+        elif action == paste_action:
+            self.paste()
+        elif action == delete_action:
+            self.delete()
+        elif action == select_all_action:
+            self.select_all()
+
+    def undo(self):
+        self.undo_stack.undo()
+
+    def redo(self):
+        self.undo_stack.redo()
+
+class EditCommand(QUndoCommand):
+    def __init__(self, table, row, column, old_value, new_value):
+        super().__init__()
+        self.table = table
+        self.row = row
+        self.column = column
+        self.old_value = old_value
+        self.new_value = new_value
+
+    def undo(self):
+        self.table.item(self.row, self.column).setText(self.old_value)
+
+    def redo(self):
+        self.table.item(self.row, self.column).setText(self.new_value)
+        
 if __name__ == '__main__':
     try:
         app = QApplication(sys.argv)
