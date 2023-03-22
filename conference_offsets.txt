@@ -1,0 +1,39 @@
+America East, offset: 0x34597c
+Atlantic Coast, offset: 0x346510
+Atlantic Sun, offset: 0x3470a4
+Atlantic Ten, offset: 0x347c38
+Big East, offset: 0x3487cc
+Big Sky, offset: 0x349360
+Big South, offset: 0x349ef4
+Big Ten, offset: 0x34aa88
+Big 12, offset: 0x34b61c
+Big West, offset: 0x34c1b0
+Colonial, offset: 0x34cd44
+Conference USA, offset: 0x34d8d8
+Horizon, offset: 0x34e46c
+Southland   , offset: 0x34f000
+Ivy League, offset: 0x34fb94
+Metro Atlantic, offset: 0x350728
+Mid-American, offset: 0x3512bc
+Mid-Eastern, offset: 0x351e50
+Missouri Valley, offset: 0x3529e4
+Mountain West, offset: 0x353578
+Northeast, offset: 0x35410c
+Ohio Valley, offset: 0x354ca0
+Pacific-12, offset: 0x355834
+Patriot League, offset: 0x3563c8
+Southeastern, offset: 0x356f5c
+Southern, offset: 0x357af0
+American , offset: 0x358684
+Southwestern, offset: 0x359218
+Summit League, offset: 0x359dac
+Sun Belt, offset: 0x35a940
+West Coast, offset: 0x35b4d4
+Western Athletic, offset: 0x35c068
+NCAA, offset: 0x35cbfc
+Top 25, offset: 0x35d790
+Classic Teams, offset: 0x35e324
+Created Teams, offset: 0x35eeb8
+None, offset: 0x35fa4c
+ABL, offset: 0x3605e0
+None, offset: 0x361174
