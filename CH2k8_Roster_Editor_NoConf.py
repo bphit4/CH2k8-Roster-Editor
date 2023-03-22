@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QTableWidget,
                              QFileDialog, QMessageBox, QLabel, QUndoStack, QUndoCommand)
 from PyQt5.QtCore import Qt
 import chardet
+import csv
 
 class RosterEditor(QWidget):
     def __init__(self):
@@ -89,6 +90,11 @@ class RosterEditor(QWidget):
         edit_menu.addAction(paste_action)
 
         self.undo_stack = QUndoStack(self)
+
+        import_action = file_menu.addAction("Import")
+        import_action.triggered.connect(self.import_data)
+        export_action = file_menu.addAction("Export")
+        export_action.triggered.connect(self.export_data)
 
         self.setLayout(vbox)
 
@@ -401,6 +407,36 @@ class RosterEditor(QWidget):
 
         with open(file_path, "wb") as file:
             file.write(data)
+
+    def import_data(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "Import Data", "", "CSV Files (*.csv);;All Files (*)", options=options)
+        if file_name:
+            with open(file_name, newline='', encoding='utf-8') as csvfile:
+                reader = csv.reader(csvfile)
+                self.table.setRowCount(0)
+                for row_data in reader:
+                    row = self.table.rowCount()
+                    self.table.insertRow(row)
+                    for column, data in enumerate(row_data):
+                        item = QTableWidgetItem(data)
+                        self.table.setItem(row, column, item)
+
+    def export_data(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getSaveFileName(self, "Export Data", "", "CSV Files (*.csv);;All Files (*)", options=options)
+        if file_name:
+            with open(file_name, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                for row in range(self.table.rowCount()):
+                    row_data = []
+                    for column in range(self.table.columnCount()):
+                        item = self.table.item(row, column)
+                        if item is not None:
+                            row_data.append(item.text())
+                        else:
+                            row_data.append('')
+                    writer.writerow(row_data)
 
 class EditCommand(QUndoCommand):
     def __init__(self, table, row, col, old_value, new_value):
