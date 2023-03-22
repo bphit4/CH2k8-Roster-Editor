@@ -29,18 +29,17 @@ class RosterEditor(QWidget):
         menu_bar.addMenu(file_menu)
 
         open_action = QAction("Open", self)
+        open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self.open_roster_file)
         file_menu.addAction(open_action)
 
         save_action = QAction("Save", self)
+        save_action.setShortcut("Ctrl+S")
         save_action.triggered.connect(self.save_roster_file)
         file_menu.addAction(save_action)
 
-        save_as_action = QAction("Save As", self)
-        save_as_action.triggered.connect(self.save_roster_file_as)
-        file_menu.addAction(save_as_action)
-
         close_action = QAction("Close", self)
+        close_action.setShortcut("Ctrl+W")
         close_action.triggered.connect(self.close_roster_file)
         file_menu.addAction(close_action)
 
@@ -91,10 +90,13 @@ class RosterEditor(QWidget):
 
         self.undo_stack = QUndoStack(self)
 
+        file_menu.addSeparator()  # Add this line to insert a separator
         import_action = file_menu.addAction("Import")
         import_action.triggered.connect(self.import_data)
+        import_action.setShortcut("Ctrl+I")
         export_action = file_menu.addAction("Export")
         export_action.triggered.connect(self.export_data)
+        export_action.setShortcut("Ctrl+E")
 
         self.setLayout(vbox)
 
@@ -219,6 +221,16 @@ class RosterEditor(QWidget):
             self.paste_item()
         elif event.key() == Qt.Key_Delete:
             self.delete_item()
+        elif event.key() == Qt.Key_O:
+            self.open_item()
+        elif event.key() == Qt.Key_S:
+            self.save_item()
+        elif event.key() == Qt.Key_W:
+            self.close_item()
+        elif event.key() == Qt.Key_E:
+            self.export_item()
+        elif event.key() == Qt.Key_I:
+            self.import_item()
         else:
             super().keyPressEvent(event)
 
@@ -362,7 +374,7 @@ class RosterEditor(QWidget):
                         new_string = self.table.item(i, j).text().encode("utf-16-le") + b'\x00\x00'
                         old_string_pointer = team_offset + pointers[j]
                         old_string = self.read_string(data, old_string_pointer).encode("utf-16-le") + b'\x00\x00'
-                        old_value = QTableWidgetItem(name)
+                        old_value = QTableWidgetItem(os.name)
                         new_value = self.table.item(i, j)
                         command = EditCommand(self.table, i, j, old_value.text(), new_value.text())
                         self.undo_stack.push(command)
