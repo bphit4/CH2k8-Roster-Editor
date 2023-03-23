@@ -7,12 +7,10 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QTableWidget,
 from PyQt5.QtCore import Qt
 import chardet
 import csv
-from PyQt5.QtWidgets import QComboBox
-from Conference_Offsets import conference_offsets
 
 class RosterEditor(QWidget):
-    def __init__(self, *args, **kwargs):
-        super(RosterEditor, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super().__init__()
         self.initUI()
         self.roster_file_path = None
         self.team_data = []
@@ -100,9 +98,6 @@ class RosterEditor(QWidget):
         export_action.triggered.connect(self.export_data)
         export_action.setShortcut("Ctrl+E")
 
-        header_labels = ["Team Name", "Team Abbr", "Team Name 2", "Team Nickname", "Team Mascot", "Conference"]
-        self.table.setHorizontalHeaderLabels(header_labels)
-
         self.setLayout(vbox)
 
     def open_roster_file(self):
@@ -133,7 +128,7 @@ class RosterEditor(QWidget):
 
     def close_roster_file(self):
         if self.roster_file_path:
-            if any(self.is_item_changed(QTableWidgetItem(team_data[col]), self.table.item(row, col)) for row, team_data in enumerate(self.team_data) for col in range(6)):
+            if any(self.is_item_changed(QTableWidgetItem(team_data[col]), self.table.item(row, col)) for row, team_data in enumerate(self.team_data) for col in range(5)):
                 reply = QMessageBox.question(self, "Close Roster File", "There are unsaved changes. Are you sure you want to close the roster file?", QMessageBox.Yes | QMessageBox.No)
                 if reply == QMessageBox.Yes:
                     self.roster_file_path = None
@@ -248,10 +243,6 @@ class RosterEditor(QWidget):
         self.table.undo_stack.push(command)
         item.setData(Qt.UserRole, new_value)
 
-    def load_conference_data(self):
-        for name, offset in conference_offsets.items():
-            self.conference_data[name] = offset
-
     def read_roster_file(self, file_path):
         with open(file_path, "rb") as file:
             data = file.read()
@@ -278,12 +269,7 @@ class RosterEditor(QWidget):
             team_nickname = self.read_string(data, team_nickname_ptr)
             team_mascot = self.read_string(data, team_mascot_ptr)
 
-            conference_pointer_offset = team_offset + 24
-            conference_pointer = struct.unpack(">I", data[conference_pointer_offset:conference_pointer_offset + 4])[0]
-            conference_offset = team_offset + conference_pointer
-            conference_name = self.read_string(data, conference_offset)
-
-            team_data.append((team_name, team_abbr, team_name2, team_nickname, team_mascot, conference_name))
+            team_data.append((team_name, team_abbr, team_name2, team_nickname, team_mascot))
 
         return team_data
 
@@ -296,11 +282,11 @@ class RosterEditor(QWidget):
         return string.decode("utf-16-le", errors="surrogatepass").rstrip('\x00')
 
     def display_team_data(self, team_data):
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(5)
         self.table.setRowCount(len(team_data))
-        self.table.setHorizontalHeaderLabels(["Team Name", "Abbreviation", "Team Name 2", "Nickname", "Mascot Name", "Conference"])
+        self.table.setHorizontalHeaderLabels(["Team Name", "Abbreviation", "Team Name 2", "Nickname", "Mascot Name"])
 
-        for i, (team_name, team_abbr, team_name2, team_nickname, team_mascot, conference_name) in enumerate(team_data):
+        for i, (team_name, team_abbr, team_name2, team_nickname, team_mascot) in enumerate(team_data):
             self.table.setItem(i, 0, QTableWidgetItem(team_name))
             self.table.setItem(i, 1, QTableWidgetItem(team_abbr))
             self.table.setItem(i, 2, QTableWidgetItem(team_name2))
@@ -314,23 +300,13 @@ class RosterEditor(QWidget):
         self.table.setColumnWidth(3, 170)
         self.table.setColumnWidth(4, 170)
 
-            # Add a QTableWidgetItem with a QComboBox for the Conference column
-        conference_item = QTableWidgetItem()
-        conference_combobox = QComboBox()
-
-        for name, offset in self.conference_data.items():
-            conference_combobox.addItem(name, userData=offset)
-            conference_combobox.setCurrentText(conference_name)
-            self.table.setCellWidget(i, 5, conference_combobox)
-            self.table.setItem(i, 5, conference_item)
-
     def is_item_changed(self, original_item, edited_item):
         return original_item.text() != edited_item.text()
 
     # Add this new function to the RosterEditor class
     def is_string_used_elsewhere(self, data, team_info_start, team_info_end, team_info_length, old_string_pointer, i, j):
         for search_offset in range(team_info_start, team_info_end, team_info_length):
-            for search_col in range(6):
+            for search_col in range(5):
                 if search_col == j:
                     continue
                 pointer = struct.unpack(">I", data[search_offset + search_col * 4:search_offset + (search_col + 1) * 4])[0]
@@ -339,7 +315,7 @@ class RosterEditor(QWidget):
 
         # Search the table in the editor for a duplicate string
         for row in range(self.table.rowCount()):
-            for col in range(6):
+            for col in range(5):
                 if row == i and col == j:
                     continue
                 cell_text = self.table.item(row, col).text()
@@ -388,19 +364,10 @@ class RosterEditor(QWidget):
         for i, (team_name, team_abbr, team_name2, team_nickname, team_mascot) in enumerate(team_data):
             team_offset = team_info_start + (i * team_info_length)
 
-            # Check if the Conference column is changed
-            new_conference_combobox = self.table.cellWidget(i, 5)
-            new_conference_name = new_conference_combobox.currentText()
-            if conference_name != new_conference_name:
-                # Calculate the new length for the conference pointer and update the value
-                new_conference_offset = new_conference_combobox.currentData()
-                new_pointer_value = new_conference_offset - (team_offset + 24)
-                struct.pack_into(">I", data, team_offset + 24, new_pointer_value)
-
             items_changed = [self.is_item_changed(QTableWidgetItem(name), self.table.item(i, j)) for j, name in enumerate((team_name, team_abbr, team_name2, team_nickname, team_mascot))]
 
             if any(items_changed):
-                pointers = [struct.unpack(">I", data[team_offset + j * 4:team_offset + (j + 1) * 4])[0] for j in range(6)]
+                pointers = [struct.unpack(">I", data[team_offset + j * 4:team_offset + (j + 1) * 4])[0] for j in range(5)]
 
                 for j, changed in enumerate(items_changed):
                     if changed:
