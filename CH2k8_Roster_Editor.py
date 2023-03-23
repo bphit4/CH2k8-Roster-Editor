@@ -201,6 +201,36 @@ class RosterEditor(QWidget):
     def create_multi_edit_command(self, table, changes):
         return MultiEditCommand(table, changes)
 
+    def import_data(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "Import Data", "", "CSV Files (*.csv);;All Files (*)", options=options)
+        if file_name:
+            with open(file_name, newline='', encoding='utf-8') as csvfile:
+                reader = csv.reader(csvfile)
+                self.table.setRowCount(0)
+                for row_data in reader:
+                    row = self.table.rowCount()
+                    self.table.insertRow(row)
+                    for column, data in enumerate(row_data):
+                        item = QTableWidgetItem(data)
+                        self.table.setItem(row, column, item)
+
+    def export_data(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getSaveFileName(self, "Export Data", "", "CSV Files (*.csv);;All Files (*)", options=options)
+        if file_name:
+            with open(file_name, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                for row in range(self.table.rowCount()):
+                    row_data = []
+                    for column in range(self.table.columnCount()):
+                        item = self.table.item(row, column)
+                        if item is not None:
+                            row_data.append(item.text())
+                        else:
+                            row_data.append('')
+                    writer.writerow(row_data)
+
     def cell_changed(self, item):
         if self.ignore_change:
             return
@@ -401,35 +431,6 @@ class RosterEditor(QWidget):
         with open(file_path, "wb") as file:
             file.write(data)
 
-    def import_data(self):
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(self, "Import Data", "", "CSV Files (*.csv);;All Files (*)", options=options)
-        if file_name:
-            with open(file_name, newline='', encoding='utf-8') as csvfile:
-                reader = csv.reader(csvfile)
-                self.table.setRowCount(0)
-                for row_data in reader:
-                    row = self.table.rowCount()
-                    self.table.insertRow(row)
-                    for column, data in enumerate(row_data):
-                        item = QTableWidgetItem(data)
-                        self.table.setItem(row, column, item)
-
-    def export_data(self):
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getSaveFileName(self, "Export Data", "", "CSV Files (*.csv);;All Files (*)", options=options)
-        if file_name:
-            with open(file_name, 'w', newline='', encoding='utf-8') as csvfile:
-                writer = csv.writer(csvfile)
-                for row in range(self.table.rowCount()):
-                    row_data = []
-                    for column in range(self.table.columnCount()):
-                        item = self.table.item(row, column)
-                        if item is not None:
-                            row_data.append(item.text())
-                        else:
-                            row_data.append('')
-                    writer.writerow(row_data)
 
 if __name__ == '__main__':
     try:
