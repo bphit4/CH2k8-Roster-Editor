@@ -7,18 +7,23 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QTableWidget,
 from PyQt5.QtCore import Qt
 import chardet
 import csv
+from ui_functions import CustomTableWidget, EditCommand, MultiEditCommand
 
 class RosterEditor(QWidget):
     def __init__(self):
         super().__init__()
+        self.table = CustomTableWidget()
         self.initUI()
         self.roster_file_path = None
         self.team_data = []
+        self.undo_stack = QUndoStack(self)
         self.table.itemChanged.connect(self.cell_changed)
+        self.ignore_change = False
 
     def initUI(self):
         self.setGeometry(100, 100, 1200, 1000)
         self.setWindowTitle("College Hoops 2k8 Roster Editor")
+        self.table.itemSelectionChanged.connect(self.commit_ongoing_command)
 
         vbox = QVBoxLayout()
 
@@ -48,14 +53,12 @@ class RosterEditor(QWidget):
         # Create a label to display the file name
         self.file_label = QLabel()
         vbox.addWidget(self.file_label)
-
-        # Create an empty table
-        self.table = CustomTableWidget()
         vbox.addWidget(self.table)
 
         # Create the context menu for the table
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.table.customContextMenuRequested.connect(self.create_context_menu)
+        self.table.setSortingEnabled(True)
+        self.table.setColumnHidden(1, True)
 
         # Edit menu
         edit_menu = QMenu("Edit", self)
@@ -143,66 +146,27 @@ class RosterEditor(QWidget):
                 self.table.setColumnCount(0)
                 self.file_label.setText("")
 
-    def create_context_menu(self, position):
-        menu = QMenu()
-        cut_action = menu.addAction("Cut")
-        copy_action = menu.addAction("Copy")
-        paste_action = menu.addAction("Paste")
-        delete_action = menu.addAction("Delete")
-
-        cut_action.triggered.connect(self.cut_item)
-        copy_action.triggered.connect(self.copy_item)
-        paste_action.triggered.connect(self.paste_item)
-        delete_action.triggered.connect(self.delete_item)
-
-        menu.exec_(self.table.viewport().mapToGlobal(position))
-
-    def cut_item(self):
-        self.copy_item()
-        self.delete_item()
-
-    def copy_item(self):
-        self.clipboard_item = self.table.currentItem()
-
-    def paste_item(self):
-        if self.clipboard_item:
-            row = self.table.currentRow()
-            col = self.table.currentColumn()
-            if row != -1 and col != -1:
-                self.table.setItem(row, col, QTableWidgetItem(self.clipboard_item))
-
-    def delete_item(self):
-        row = self.table.currentRow()
-        col = self.table.currentColumn()
-        if row != -1 and col != -1:
-            self.table.setItem(row, col, QTableWidgetItem(""))
-
     def cut(self):
-        selected_items = self.table.selectedItems()
-        if selected_items:
-            clipboard = QApplication.clipboard()
-            clipboard.clear()
-            clipboard.setText(selected_items[0].text())
-            selected_items[0].setText("")
+        self.table.cut()
 
     def copy(self):
-        selected_items = self.table.selectedItems()
-        if selected_items:
-            clipboard = QApplication.clipboard()
-            clipboard.clear()
-            clipboard.setText(selected_items[0].text())
+        self.table.copy()
 
     def paste(self):
-        selected_items = self.table.selectedItems()
-        if selected_items:
-            clipboard = QApplication.clipboard()
-            selected_items[0].setText(clipboard.text())
+        self.table.paste()
+
+    def delete(self):
+        self.table.delete()
 
     def undo(self):
+        self.ignore_change = True
         self.undo_stack.undo()
+        self.ignore_change = False
 
     def redo(self):
+        self.ignore_change = True
         self.undo_stack.redo()
+        self.ignore_change = False
 
     # Override mousePressEvent and keyPressEvent to handle right-clicks and hotkeys
     def mousePressEvent(self, event):
@@ -214,13 +178,13 @@ class RosterEditor(QWidget):
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_C and (event.modifiers() & Qt.ControlModifier):
-            self.copy_item()
+            self.copy()
         elif event.key() == Qt.Key_X and (event.modifiers() & Qt.ControlModifier):
-            self.cut_item()
+            self.cut()
         elif event.key() == Qt.Key_V and (event.modifiers() & Qt.ControlModifier):
-            self.paste_item()
+            self.paste()
         elif event.key() == Qt.Key_Delete:
-            self.delete_item()
+            self.delete()
         elif event.key() == Qt.Key_O:
             self.open_item()
         elif event.key() == Qt.Key_S:
@@ -234,14 +198,31 @@ class RosterEditor(QWidget):
         else:
             super().keyPressEvent(event)
 
+    def create_multi_edit_command(self, table, changes):
+        return MultiEditCommand(table, changes)
+
     def cell_changed(self, item):
+        if self.ignore_change:
+            return
+
         old_value = item.data(Qt.UserRole)
         new_value = item.text()
         if old_value is None or old_value == new_value:
             return
-        command = EditCommand(self.table, item.row(), item.column(), old_value, new_value)
-        self.table.undo_stack.push(command)
-        item.setData(Qt.UserRole, new_value)
+
+        self.ignore_change = True
+        command = self.create_multi_edit_command(self.table, [(item.row(), item.column(), old_value, new_value)])
+        self.undo_stack.push(command)
+        self.ignore_change = False
+        item.setData(Qt.UserRole, new_value)    
+
+    def commit_ongoing_command(self, item=None):
+        if item is not None:
+            self.cell_changed(item)
+
+        if hasattr(self, 'ongoing_command') and self.ongoing_command is not None and self.ongoing_command.changes:
+            self.undo_stack.push(self.ongoing_command)
+            self.ongoing_command = None
 
     def read_roster_file(self, file_path):
         with open(file_path, "rb") as file:
@@ -450,79 +431,6 @@ class RosterEditor(QWidget):
                             row_data.append('')
                     writer.writerow(row_data)
 
-class EditCommand(QUndoCommand):
-    def __init__(self, table, row, col, old_value, new_value):
-        super().__init__()
-        self.table = table
-        self.row = row
-        self.col = col
-        self.old_value = old_value
-        self.new_value = new_value
-
-    def undo(self):
-        self.table.item(self.row, self.col).setText(self.old_value)
-
-    def redo(self):
-        self.table.item(self.row, self.col).setText(self.new_value)
-
-class CustomTableWidget(QTableWidget):
-    def __init__(self, *args, **kwargs):
-        super(CustomTableWidget, self).__init__(*args, **kwargs)
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.context_menu)
-        self.undo_stack = QUndoStack(self)
-
-    def context_menu(self, pos):
-        menu = QMenu()
-
-        undo_action = menu.addAction("Undo")
-        redo_action = menu.addAction("Redo")
-        menu.addSeparator()
-        cut_action = menu.addAction("Cut")
-        copy_action = menu.addAction("Copy")
-        paste_action = menu.addAction("Paste")
-        delete_action = menu.addAction("Delete")
-        menu.addSeparator()
-        select_all_action = menu.addAction("Select All")
-
-        action = menu.exec_(self.viewport().mapToGlobal(pos))
-
-        if action == undo_action:
-            self.undo()
-        elif action == redo_action:
-            self.redo()
-        elif action == cut_action:
-            self.cut()
-        elif action == copy_action:
-            self.copy()
-        elif action == paste_action:
-            self.paste()
-        elif action == delete_action:
-            self.delete()
-        elif action == select_all_action:
-            self.select_all()
-
-    def undo(self):
-        self.undo_stack.undo()
-
-    def redo(self):
-        self.undo_stack.redo()
-
-class EditCommand(QUndoCommand):
-    def __init__(self, table, row, column, old_value, new_value):
-        super().__init__()
-        self.table = table
-        self.row = row
-        self.column = column
-        self.old_value = old_value
-        self.new_value = new_value
-
-    def undo(self):
-        self.table.item(self.row, self.column).setText(self.old_value)
-
-    def redo(self):
-        self.table.item(self.row, self.column).setText(self.new_value)
-        
 if __name__ == '__main__':
     try:
         app = QApplication(sys.argv)
