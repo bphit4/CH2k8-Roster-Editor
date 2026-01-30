@@ -16,12 +16,21 @@ def read_be_u32(data, offset):
     return int.from_bytes(data[offset:offset + 4], byteorder="big", signed=False)
 
 
-def read_utf16le_string(data, pointer):
+def read_utf16le_string(data, pointer, max_bytes=256):
     output = bytearray()
-    while data[pointer:pointer + 2] != b"\x00\x00":
+    while pointer + 2 <= len(data) and len(output) < max_bytes:
+        if data[pointer:pointer + 2] == b"\x00\x00":
+            break
         output.extend(data[pointer:pointer + 2])
         pointer += 2
-    return output.decode("utf-16-le", errors="surrogatepass")
+    return output.decode("utf-16-le", errors="replace")
+
+
+def is_printable_string(value):
+    if not value:
+        return False
+    printable = sum(1 for ch in value if ch.isprintable())
+    return printable / len(value) >= 0.85
 
 
 def load_team_offsets(path):
@@ -40,6 +49,37 @@ def chunked_hex(data, width=16):
         chunk = data[index:index + width]
         lines.append(binascii.hexlify(chunk).decode("ascii"))
     return lines
+
+
+def scan_for_extra_strings(data, team_offset, known_strings):
+    extras = []
+    seen = set()
+    for offset in range(0, TEAM_BLOCK_LENGTH, 4):
+        pointer_offset = team_offset + offset
+        pointer_value = read_be_u32(data, pointer_offset)
+        string_pointer = pointer_offset + pointer_value
+        if not (0 <= string_pointer < len(data)):
+            continue
+        candidate = read_utf16le_string(data, string_pointer)
+        if not candidate or len(candidate) > 64:
+            continue
+        if candidate in known_strings:
+            continue
+        if not is_printable_string(candidate):
+            continue
+        key = (string_pointer, candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        extras.append(
+            {
+                "pointer_offset": pointer_offset,
+                "pointer_value": pointer_value,
+                "string_pointer": string_pointer,
+                "value": candidate,
+            }
+        )
+    return extras
 
 
 def parse_teams(data, team_offsets):
@@ -63,6 +103,7 @@ def parse_teams(data, team_offsets):
             )
 
         block = data[team_offset:team_offset + TEAM_BLOCK_LENGTH]
+        extra_strings = scan_for_extra_strings(data, team_offset, set(strings))
         teams.append(
             {
                 "index": team_index,
@@ -75,6 +116,7 @@ def parse_teams(data, team_offsets):
                 "mascot": strings[4],
                 "pointers": pointers,
                 "block_hex": chunked_hex(block),
+                "extra_strings": extra_strings,
             }
         )
     return teams
@@ -113,7 +155,7 @@ def main():
     )
     parser.add_argument("--input", default=USERDATA_FILE, help="Path to USERDATA roster file.")
     parser.add_argument("--team-offsets", default=TEAM_OFFSETS_FILE, help="Path to team_offsets.txt.")
-    parser.add_argument("--json-out", default="roster_dump.json", help="Path for JSON output.")
+    parser.add_argument("--json-out", default="dump.json", help="Path for JSON output.")
     parser.add_argument("--teams-csv", default="teams.csv", help="Path for team CSV output.")
     parser.add_argument("--conferences-csv", default="conferences.csv", help="Path for conference CSV output.")
     args = parser.parse_args()
