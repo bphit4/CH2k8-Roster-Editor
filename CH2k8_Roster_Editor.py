@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QTableWidget,
 from PyQt5.QtCore import Qt
 import chardet
 import csv
-from ui_functions import CustomTableWidget, EditCommand, MultiEditCommand
+from ui_functions import CustomTableWidget, MultiEditCommand
 
 class RosterEditor(QWidget):
     def __init__(self):
@@ -208,12 +208,15 @@ class RosterEditor(QWidget):
             with open(file_name, newline='', encoding='utf-8') as csvfile:
                 reader = csv.reader(csvfile)
                 self.table.setRowCount(0)
+                self.ignore_change = True
                 for row_data in reader:
                     row = self.table.rowCount()
                     self.table.insertRow(row)
                     for column, data in enumerate(row_data):
                         item = QTableWidgetItem(data)
+                        item.setData(Qt.UserRole, data)
                         self.table.setItem(row, column, item)
+                self.ignore_change = False
 
     def export_data(self):
         options = QFileDialog.Options()
@@ -296,13 +299,13 @@ class RosterEditor(QWidget):
         self.table.setColumnCount(5)
         self.table.setRowCount(len(team_data))
         self.table.setHorizontalHeaderLabels(["Team Name", "Abbreviation", "Team Name 2", "Nickname", "Mascot Name"])
-
+        self.ignore_change = True
         for i, (team_name, team_abbr, team_name2, team_nickname, team_mascot) in enumerate(team_data):
-            self.table.setItem(i, 0, QTableWidgetItem(team_name))
-            self.table.setItem(i, 1, QTableWidgetItem(team_abbr))
-            self.table.setItem(i, 2, QTableWidgetItem(team_name2))
-            self.table.setItem(i, 3, QTableWidgetItem(team_nickname))
-            self.table.setItem(i, 4, QTableWidgetItem(team_mascot))
+            for column, value in enumerate((team_name, team_abbr, team_name2, team_nickname, team_mascot)):
+                item = QTableWidgetItem(value)
+                item.setData(Qt.UserRole, value)
+                self.table.setItem(i, column, item)
+        self.ignore_change = False
 
         # Set the column widths
         self.table.setColumnWidth(0, 170)
@@ -385,10 +388,6 @@ class RosterEditor(QWidget):
                         new_string = self.table.item(i, j).text().encode("utf-16-le") + b'\x00\x00'
                         old_string_pointer = team_offset + pointers[j]
                         old_string = self.read_string(data, old_string_pointer).encode("utf-16-le") + b'\x00\x00'
-                        old_value = QTableWidgetItem(os.name)
-                        new_value = self.table.item(i, j)
-                        command = EditCommand(self.table, i, j, old_value.text(), new_value.text())
-                        self.undo_stack.push(command)
 
                         # Check if the new string already exists
                         new_string_pointer = self.find_string_in_pool(data, string_pool_start, new_string)
