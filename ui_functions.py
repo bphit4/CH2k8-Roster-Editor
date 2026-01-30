@@ -79,13 +79,27 @@ class CustomTableWidget(QTableWidget):
                 new_row = row + row_offset
                 new_col = col + col_offset
                 if 0 <= new_row < self.rowCount() and 0 <= new_col < self.columnCount():
-                    self.setItem(new_row, new_col, QTableWidgetItem(text))
+                    existing_item = self.item(new_row, new_col)
+                    if existing_item is None:
+                        existing_item = QTableWidgetItem("")
+                        existing_item.setData(Qt.UserRole, "")
+                        self.setItem(new_row, new_col, existing_item)
+                    elif existing_item.data(Qt.UserRole) is None:
+                        existing_item.setData(Qt.UserRole, existing_item.text())
+                    existing_item.setText(text)
 
     def delete(self):
         for cell_range in self.selectedRanges():
             for row in range(cell_range.topRow(), cell_range.bottomRow() + 1):
                 for col in range(cell_range.leftColumn(), cell_range.rightColumn() + 1):
-                    self.setItem(row, col, QTableWidgetItem(""))
+                    existing_item = self.item(row, col)
+                    if existing_item is None:
+                        existing_item = QTableWidgetItem("")
+                        existing_item.setData(Qt.UserRole, "")
+                        self.setItem(row, col, existing_item)
+                    elif existing_item.data(Qt.UserRole) is None:
+                        existing_item.setData(Qt.UserRole, existing_item.text())
+                    existing_item.setText("")
 
     def hideColumns(self):
         selected_columns = set()
@@ -98,36 +112,6 @@ class CustomTableWidget(QTableWidget):
     def showAllColumns(self):
         for col in range(self.columnCount()):
             self.setColumnHidden(col, False)
-
-class EditCommand(QUndoCommand):
-    def __init__(self, table, row, col, old_value, new_value):
-        super().__init__()
-        self.table = table
-        self.row = row
-        self.col = col
-        self.old_value = old_value
-        self.new_value = new_value
-
-    def undo(self):
-        self.table.item(self.row, self.col).setText(self.old_value)
-
-    def redo(self):
-        self.table.item(self.row, self.col).setText(self.new_value)
-
-class EditCommand(QUndoCommand):
-    def __init__(self, table, row, column, old_value, new_value):
-        super().__init__()
-        self.table = table
-        self.row = row
-        self.column = column
-        self.old_value = old_value
-        self.new_value = new_value
-
-    def undo(self):
-        self.table.item(self.row, self.column).setText(self.old_value)
-
-    def redo(self):
-        self.table.item(self.row, self.column).setText(self.new_value)
 
 class MultiEditCommand(QUndoCommand):
     def __init__(self, table, changes):

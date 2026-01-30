@@ -13,3 +13,13 @@ Run it from the repo root:
 ```bash
 python roster_dump.py --input USERDATA
 ```
+
+## String scan helper
+
+To continue parsing the roster file beyond the team/conference tables, use the string scan helper. It loads
+`dump.json`, filters out known team/conference strings, and reports any other UTF-16LE strings found in the
+roster file.
+
+```bash
+python roster_string_scan.py --input USERDATA --dump-json dump.json
+```
